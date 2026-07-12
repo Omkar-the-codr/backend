@@ -48,6 +48,51 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_ghosts_by_owner_id(
+            self,
+            owner_id: UUID,
+    ) -> list[User]:
+        result = await self.session.execute(
+            select(User)
+            .where(
+                User.ghost_owner_id == owner_id,
+                User.is_ghost.is_(True),
+                )
+            .order_by(User.name)
+        )
+
+        return list(result.scalars().all())
+
+    async def get_ghost_by_id_and_owner(
+            self,
+            ghost_id: UUID,
+            owner_id: UUID,
+    ) -> User | None:
+        result = await self.session.execute(
+            select(User).where(
+                User.id == ghost_id,
+                User.ghost_owner_id == owner_id,
+                User.is_ghost.is_(True),
+                )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def search_ghosts(
+            self,
+            owner_id: UUID,
+            query: str,
+    ) -> list[User]:
+        result = await self.session.execute(
+            select(User).where(
+                User.ghost_owner_id == owner_id,
+                User.is_ghost.is_(True),
+                User.name.ilike(f"%{query.strip()}%"),
+                )
+            .order_by(User.name)
+        )
+
+        return list(result.scalars().all())
 
 class AuthRepository:
     def __init__(self, session: AsyncSession):

@@ -21,7 +21,8 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_code = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
+    # ghost users don't have email
+    email = Column(String, unique=True, nullable=True)
     password_hash = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)
     auth_provider = Column(
@@ -39,7 +40,7 @@ class User(Base):
         nullable=False,
     )
 
-    # Ghost User Column
+    # Ghost User Metadata
     is_ghost = Column(Boolean, nullable=False, default=False)
     ghost_owner_id = Column(
         UUID(as_uuid=True),
