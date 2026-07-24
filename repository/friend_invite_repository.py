@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.friend_invite import FriendInvite
@@ -24,7 +24,7 @@ class FriendInviteRepository:
         )
 
         self.session.add(invite)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(invite)
 
         return invite
@@ -57,9 +57,25 @@ class FriendInviteRepository:
 
         return result.scalar_one_or_none()
 
+    async def invalidate_active_invites(
+            self,
+            friend_id: UUID,
+    ) -> None:
+        await self.session.execute(
+            update(FriendInvite)
+            .where(
+                FriendInvite.friend_id == friend_id,
+                FriendInvite.used.is_(False),
+                FriendInvite.expires_at > datetime.now(timezone.utc),
+                )
+            .values(used=True)
+        )
+
+        await self.session.flush()
+
     async def mark_invite_as_used(
             self,
             invite: FriendInvite,
     ) -> None:
         invite.used = True
-        await self.session.commit()
+        await self.session.flush()

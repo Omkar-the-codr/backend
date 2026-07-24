@@ -13,6 +13,7 @@ from repository.group_member_repository import GroupMemberRepository
 from repository.group_repository import GroupRepository
 from schemas.common import SuccessResponse
 from schemas.friend import FriendResponse
+from models.friend import Friend
 
 
 async def create_friend(
@@ -106,8 +107,23 @@ async def delete_friend(
     return SuccessResponse(message="Friend deleted successfully", data=None)
 
 
+
+async def _claim_friend_internal(
+        friend_repo: FriendRepository,
+        friend: Friend,
+        new_user_id: UUID,
+) -> Friend:
+    await friend_repo.rewrite_group_members(friend.id, new_user_id)
+    await friend_repo.rewrite_expense_splits(friend.id, new_user_id)
+    await friend_repo.rewrite_settlements(friend.id, new_user_id)
+
+    return await friend_repo.mark_claimed(friend, new_user_id)
+
+
 async def claim_friend(
-    friend_id: UUID, new_user_id: UUID, db: AsyncSession
+        friend_id: UUID,
+        new_user_id: UUID,
+        db: AsyncSession,
 ) -> SuccessResponse[FriendResponse]:
     friend_repo = FriendRepository(db)
 
@@ -120,14 +136,15 @@ async def claim_friend(
 
     if new_user_id == friend.owner_id:
         raise HTTPException(
-            status_code=400, detail="Owner cannot claim their own friend"
+            status_code=400,
+            detail="Owner cannot claim their own friend",
         )
 
-    await friend_repo.rewrite_group_members(friend_id, new_user_id)
-    await friend_repo.rewrite_expense_splits(friend_id, new_user_id)
-    await friend_repo.rewrite_settlements(friend_id, new_user_id)
-
-    claimed_friend = await friend_repo.mark_claimed(friend, new_user_id)
+    claimed_friend = await _claim_friend_internal(
+        friend_repo,
+        friend,
+        new_user_id,
+    )
 
     await db.commit()
     await db.refresh(claimed_friend)
